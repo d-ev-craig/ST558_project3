@@ -1,0 +1,313 @@
+---
+title: "DotaNP"
+author: "Daniel Craig"
+date: '2022-08-07'
+output: html_document
+---
+```{r}
+library(ggiraphExtra)
+library(knitr)
+library(data.table)
+library(readr)
+library(dplyr)
+library(randomForest)
+library(caret)
+library(ggplot2)
+library(gbm)
+library(ggsci)
+library(tree)
+```
+
+Load In Data
+```{r}
+#data<-read_csv("_Projects\\Project3\\datasets\\NPBase.csv")
+
+data<-read_csv("NPBase.csv")
+
+data$win <- as.character(data$win)
+
+#recode(data$win, Yes = "1", No = "0")
+#recode(data$win, "Yes"="TRUE", "No" = "FALSE")
+
+data$win <- data$win %>% mutate(win = ifelse(win == "No",0,1))
+
+data$account_id <- as.factor(data$account_id)
+
+data$match_id <- as.factor(data$match_id)
+
+```
+EDA
+```{r}
+
+varname <- "gold"
+
+varHist <- ggplot(data, aes(x=gold)) +  
+  theme_bw() +                                                                     #Set classic bw plot theme
+  geom_histogram(color="black", fill = "#34495E", alpha = 0.8, binwidth = 100) +   #Color options, binwidth set to 100 shares
+  labs(x = "Win Or Lose", y = "Count", title = paste0("Counts of ", varname))                                  
+
+varHist
+```
+
+```{r}
+boxPlot <- ggplot(data, aes(x=win,y=gold), fill = gold) + 
+  theme_bw() +                                                              #Set classic bw plot theme
+  geom_hline(yintercept = median(data$gold), size = 0.8) +             #Add line for overall median shares
+  geom_point(size = 0.8) +                                                  #Add points
+  geom_boxplot(lwd = 0.5, width = 0.5, outlier.size = 0.8, alpha = 0.7) +   #Create boxplot
+  xlab("") + ylab("Amount of Gold") +                                             #Label axis
+  theme(legend.position = "none") +                                         #Remove legend
+  ggtitle(paste0("Wins vs ", varname)) +                                            #Set title
+  scale_color_startrek() + scale_fill_startrek()                            #Set color theme
+
+#Display plot
+boxPlot
+```
+
+
+```{r}
+# Numerical Summaries
+
+data
+
+playerMatches <- data %>% select(win,account_id,match_id)
+  
+playerMatches
+
+playerWins <- select(playerMatches, -match_id)
+
+#Total Wins by a Player
+playerWins <- playerWins %>% group_by(account_id) %>% summarise(TotalWins = sum(win==1))
+
+playerWins <- as.data.table(playerWins)
+
+#Total Matches by a Player
+
+playerMatches <- as.data.table(playerMatches)
+playerMatches[, .(rowCount =.N), by=account_id]
+
+playerMatches <- as.data.table(playerMatches)
+sumMatches <- playerMatches[, .(totalMatches =.N), by=account_id]
+
+sumMatches <- playerMatches[sumMatches, on =.(account_id =account_id)]
+
+sumMatches
+
+#Player Frame comprising of the player matches and wins
+playerFrame <- sumMatches[playerWins, on =.(account_id =account_id)]
+
+playerFrame <- playerFrame %>% mutate(win_perc = TotalWins/totalMatches) %>% arrange(desc(totalMatches))
+
+playerFrame
+
+#League Matches
+leagueMatches <- data %>% select(win,account_id,match_id,leaguename)
+leagueMatches <- as.data.table(leagueMatches)
+sumLeagueMatches <- leagueMatches[,.(totalLeagueMatches =.N), by=leaguename]
+
+leagueMatches
+
+#League Wins
+leagueWins <- leagueMatches %>% group_by(leaguename) %>% summarise(leagueTotalWins = sum(win==1))
+leagueWins
+
+leagueWins <- as.data.table(leagueWins)
+
+#League Frame
+leagueFrame <- sumLeagueMatches[leagueWins, on =.(leaguename =leaguename)]
+
+leagueFrame <- leagueFrame %>% mutate(win_perc = leagueTotalWins/totalLeagueMatches) %>% arrange(desc(totalLeagueMatches))
+
+
+#Numerical
+
+avgTable <- table(avgKills=round(mean(data$kills),digits=2),avgDur=round(mean(data$duration),digits=2),avgGPM=round(mean(data$gold_per_min),digits=2),avgNetWorth = round(mean(data$net_worth),digits=2), avgTowerDmg=round(mean(data$tower_damage),digits=2))
+avgTable
+
+kable(avgTable)
+
+
+#Categorical
+
+#Create new categorical variables to classify game as high/normal/low GPM, networth, tower damage, kills,duration
+table(data$win,data$lane,data$lane_role)
+
+#note that lane role determined by networth
+
+
+categoryTable <- table(win=data$win,lane=data$lane,lanerole=data$lane_role)
+kable(categoryTable)
+
+```
+
+#Modeling Page
+
+## Model Fitting
+
+#Glm Fit
+# Change p = user input for proportion of data
+# Change var used to user input
+
+
+```{r}
+
+dataModel <- data.frame(data)
+dataModel$win <- as.factor(dataModel$win)
+
+if ("account_id" %in% colnames(dataModel)){
+ dataModel <- subset(dataModel, select = -account_id) 
+}
+
+if ("match_id" %in% colnames(dataModel)){
+dataModel <- subset(dataModel, select = -match_id)
+}
+
+if ("hero_id" %in% colnames(dataModel)){
+dataModel <- subset(dataModel, select = -hero_id)
+}
+
+if ("leaguename" %in% colnames(dataModel)){
+dataModel <- subset(dataModel, select = -leaguename)
+}
+
+if ("start_time" %in% colnames(dataModel)) {
+  dataModel <- subset(dataModel, select = -start_time)
+}
+
+class(dataModel$win)
+class(dataModel$gold_per_min)
+class(dataModel$net_worth)
+class(dataModel$gold)
+class(dataModel$kills)
+class(dataModel$tower_damage)
+class(dataModel$duration)
+class(dataModel$lane)
+class(dataModel$lane_role)
+
+
+dataIndex <- createDataPartition(dataModel$win, p = 0.75, list = FALSE)
+dataTrain <- dataModel[dataIndex, ]
+dataTest <- dataModel[-dataIndex, ]
+
+glmFit <- train(win ~ ., data = dataTrain, 
+         method = "glm", 
+         family = "binomial",
+         preProcess = c("center", "scale"),
+         trControl = trainControl(method = "cv", number = 10))
+
+
+predictions <- predict(glmFit, dataTrain)
+
+devia<-summary(glmFit)$deviance
+
+coef <-summary(glmFit)$coefficients
+
+predictions
+devia
+coef
+
+confusionMatrix(data = dataTest$win, reference = predict(glmFit, newdata = dataTest))
+
+```
+
+# Classification Tree
+# Change . to user input
+
+```{r}
+classTreeFit <- tree(win ~ ., data = dataTrain) # The '.' means all variables to be used as explanatory variables
+summary(classTreeFit)
+```
+###Pruning
+```{r}
+pruneFit <- cv.tree(classTreeFit, FUN = prune.misclass)
+
+
+plot(pruneFit$size, pruneFit$dev, type = "b")
+```
+
+```{r}
+pruneFit
+
+dfPruneFit <- cbind(size=pruneFit$size,dev=pruneFit$dev)
+dfPruneFit <- data.frame(dfPruneFit)
+dfPruneFit <- dfPruneFit %>% group_by(size)%>%arrange(size)%>%arrange(dev)
+
+
+bestVal <- dfPruneFit$size[1]
+bestVal
+```
+### Pruned Predictions
+```{r}
+pruneFitFinal <- prune.misclass(classTreeFit, best = bestVal)
+
+fullPred <- predict(classTreeFit, dplyr::select(dataTest, -"win"), type = "class")
+
+prunePred <- predict(pruneFitFinal, dplyr::select(dataTest, -"win"), type = "class")
+
+```
+
+### Comparison Full Fit
+```{r}
+fullTbl <- table(data.frame(fullPred, dataTest[, "win"]))
+kable(fullTbl)
+accFull<-sum(diag(fullTbl)/sum(fullTbl))
+print(acc)
+```
+### Comparison Pruned Fit
+```{r}
+pruneTbl <- table(data.frame(prunePred, dataTest[, "win"]))
+kable(pruneTbl)
+accPrune<-sum(diag(pruneTbl)/sum(pruneTbl))
+print(accPrune)
+```
+
+## Random Forest
+# Change the . on 254 to user input
+
+
+Here we change our mtry to be ncol(diamondsTrain)/3 since this example was regression
+```{r}  
+trainRFModel <- train(win ~ ., data = dataTrain,
+method = "rf",
+trControl = trainControl(method = "repeatedcv", number = 5, repeats = 3),
+tuneGrid = data.frame(mtry = sqrt(ncol(dataTrain) - 1)))
+
+trainConMat <- confusionMatrix(trainRFModel, newdata = dataTest)
+testConMat <- confusionMatrix(data = dataTest$win, reference = predict(trainRFModel, newdata = dataTest))
+```
+
+# Prediction Page Using the GLM
+
+# gold_per_min,net_worth,gold,kills,tower_damage,duration,lane, lane_role
+dataModel
+
+predictions <- predict(glmFit, data = c(input$gpm,input$networth,input$gold,input$kills,input$tower_damage,input$duration,input$lane,input$lane_role))
+
+```{r}
+
+dataIndex <- createDataPartition(dataModel$win, p = 0.75, list = FALSE)
+dataTrain <- dataModel[dataIndex, ]
+dataTest <- dataModel[-dataIndex, ]
+
+glmFit <- train(win ~ ., data = dataTrain, 
+         method = "glm", 
+         family = "binomial",
+         preProcess = c("center", "scale"),
+         trControl = trainControl(method = "cv", number = 10))
+
+
+#Change to be reactive to user data
+
+userData <- data.frame(gold_per_min=600,net_worth=17000,gold=400,kills=11,tower_damage=9000,duration=2500,lane=3,lane_role=3)
+
+userPred<-predict(glmFit, newdata= userData)
+
+userPred
+
+
+```
+
+
+
+
+
