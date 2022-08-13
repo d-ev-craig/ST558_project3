@@ -29,6 +29,7 @@ shinyUI(fluidPage(
                                                                 "lane",
                                                                 "lane_role")),
       br(),
+      selectInput("plotType","", selected = "Histogram", choices = c("Histogram","Boxplot"))
       #sliderInput("size", "Size of Points on Graph",
                   #min = 1, max = 10, value = 5, step = 1),
       #checkboxInput("conservation", h4("Color Code Conservation Status", style = "color:red;")),
@@ -38,7 +39,7 @@ shinyUI(fluidPage(
      ),
     mainPanel(
       tabsetPanel(
-        tabPanel("Plot",plotOutput("boxPlot")),
+        tabPanel("Plot",plotOutput("histPlot")),
         tabPanel("Other Plot",plotOutput("distPlot"))
       ))
  
