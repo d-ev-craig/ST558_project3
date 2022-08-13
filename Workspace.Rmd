@@ -22,18 +22,23 @@ Load In Data
 ```{r}
 #data<-read_csv("_Projects\\Project3\\datasets\\NPBase.csv")
 
-data<-read_csv("NPBase.csv")
+npData<-read_csv("NPBase.csv")
+#npData<- as_tibble(npData)
 
-data$win <- as.character(data$win)
+npData <- as.data.frame(npData)
 
-#recode(data$win, Yes = "1", No = "0")
-#recode(data$win, "Yes"="TRUE", "No" = "FALSE")
+npData$win <- as.character(npData$win)
 
-data$win <- data$win %>% mutate(win = ifelse(win == "No",0,1))
+recode(npData$win, Yes = "1", No = "0")
+#recode(npData$win, "Yes"="TRUE", "No" = "FALSE")
 
-data$account_id <- as.factor(data$account_id)
+npData
 
-data$match_id <- as.factor(data$match_id)
+#npData$win <- npData$win %>% mutate(win = ifelse(win == "No",0,1))
+
+npData$account_id <- as.factor(npData$account_id)
+
+npData$match_id <- as.factor(npData$match_id)
 
 ```
 EDA
@@ -41,7 +46,7 @@ EDA
 
 varname <- "gold"
 
-varHist <- ggplot(data, aes(x=gold)) +  
+varHist <- ggplot(npData, aes(x=gold)) +  
   theme_bw() +                                                                     #Set classic bw plot theme
   geom_histogram(color="black", fill = "#34495E", alpha = 0.8, binwidth = 100) +   #Color options, binwidth set to 100 shares
   labs(x = "Win Or Lose", y = "Count", title = paste0("Counts of ", varname))                                  
@@ -50,9 +55,9 @@ varHist
 ```
 
 ```{r}
-boxPlot <- ggplot(data, aes(x=win,y=gold), fill = gold) + 
+boxPlot <- ggplot(npData, aes(x=win,y=gold), fill = gold) + 
   theme_bw() +                                                              #Set classic bw plot theme
-  geom_hline(yintercept = median(data$gold), size = 0.8) +             #Add line for overall median shares
+  geom_hline(yintercept = median(npData$gold), size = 0.8) +             #Add line for overall median shares
   geom_point(size = 0.8) +                                                  #Add points
   geom_boxplot(lwd = 0.5, width = 0.5, outlier.size = 0.8, alpha = 0.7) +   #Create boxplot
   xlab("") + ylab("Amount of Gold") +                                             #Label axis
@@ -68,9 +73,9 @@ boxPlot
 ```{r}
 # Numerical Summaries
 
-data
+npData
 
-playerMatches <- data %>% select(win,account_id,match_id)
+playerMatches <- npData %>% select(win,account_id,match_id)
   
 playerMatches
 
@@ -101,7 +106,7 @@ playerFrame <- playerFrame %>% mutate(win_perc = TotalWins/totalMatches) %>% arr
 playerFrame
 
 #League Matches
-leagueMatches <- data %>% select(win,account_id,match_id,leaguename)
+leagueMatches <- npData %>% select(win,account_id,match_id,leaguename)
 leagueMatches <- as.data.table(leagueMatches)
 sumLeagueMatches <- leagueMatches[,.(totalLeagueMatches =.N), by=leaguename]
 
@@ -121,7 +126,7 @@ leagueFrame <- leagueFrame %>% mutate(win_perc = leagueTotalWins/totalLeagueMatc
 
 #Numerical
 
-avgTable <- table(avgKills=round(mean(data$kills),digits=2),avgDur=round(mean(data$duration),digits=2),avgGPM=round(mean(data$gold_per_min),digits=2),avgNetWorth = round(mean(data$net_worth),digits=2), avgTowerDmg=round(mean(data$tower_damage),digits=2))
+avgTable <- table(avgKills=round(mean(npData$kills),digits=2),avgDur=round(mean(npData$duration),digits=2),avgGPM=round(mean(npData$gold_per_min),digits=2),avgNetWorth = round(mean(npData$net_worth),digits=2), avgTowerDmg=round(mean(npData$tower_damage),digits=2))
 avgTable
 
 kable(avgTable)
@@ -130,12 +135,12 @@ kable(avgTable)
 #Categorical
 
 #Create new categorical variables to classify game as high/normal/low GPM, networth, tower damage, kills,duration
-table(data$win,data$lane,data$lane_role)
+table(npData$win,npData$lane,npData$lane_role)
 
 #note that lane role determined by networth
 
 
-categoryTable <- table(win=data$win,lane=data$lane,lanerole=data$lane_role)
+categoryTable <- table(win=npData$win,lane=npData$lane,lanerole=npData$lane_role)
 kable(categoryTable)
 
 ```
@@ -151,7 +156,7 @@ kable(categoryTable)
 
 ```{r}
 
-dataModel <- data.frame(data)
+dataModel <- data.frame(npData)
 dataModel$win <- as.factor(dataModel$win)
 
 if ("account_id" %in% colnames(dataModel)){
@@ -251,7 +256,7 @@ prunePred <- predict(pruneFitFinal, dplyr::select(dataTest, -"win"), type = "cla
 fullTbl <- table(data.frame(fullPred, dataTest[, "win"]))
 kable(fullTbl)
 accFull<-sum(diag(fullTbl)/sum(fullTbl))
-print(acc)
+print(accFull)
 ```
 ### Comparison Pruned Fit
 ```{r}

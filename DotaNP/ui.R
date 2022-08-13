@@ -6,29 +6,43 @@
 #
 #    http://shiny.rstudio.com/
 #
-
+library(ggplot2)
 library(shiny)
 
 # Define UI for application that draws a histogram
+
 shinyUI(fluidPage(
-
-    # Application title
-    titlePanel("Old Faithful Geyser Data"),
-
-    # Sidebar with a slider input for number of bins
-    sidebarLayout(
-        sidebarPanel(
-            sliderInput("bins",
-                        "Number of bins:",
-                        min = 1,
-                        max = 50,
-                        value = 30)
-        ),
-
-        # Show a plot of the generated distribution
-        mainPanel(
-            plotOutput("varHist"),
-            plotOutput("distPlot")
-        )
-    )
-))
+  
+  # Application title
+  titlePanel(uiOutput("title")),
+  
+  # Sidebar with options for the data set
+  sidebarLayout(
+    sidebarPanel(
+      h3("Pick Your Variable of Interest:"),
+      selectInput("pred", "", selected = "gold", choices = c("gold_per_min",
+                                                                "net_worth",
+                                                                "gold",
+                                                                "kills",
+                                                                "tower_damage",
+                                                                "duration",
+                                                                "lane",
+                                                                "lane_role")),
+      br(),
+      #sliderInput("size", "Size of Points on Graph",
+                  #min = 1, max = 10, value = 5, step = 1),
+      #checkboxInput("conservation", h4("Color Code Conservation Status", style = "color:red;")),
+      
+      #conditionalPanel(condition = "input.conservation",
+      #                 checkboxInput("CB",label=h4("Opacity = REM"),value=FALSE,width="100%"),
+     ),
+    mainPanel(
+      tabsetPanel(
+        tabPanel("Plot",plotOutput("boxPlot")),
+        tabPanel("Other Plot",plotOutput("distPlot"))
+      ))
+ 
+    
+    # Show outputs
+    
+)))
