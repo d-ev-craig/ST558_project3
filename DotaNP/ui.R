@@ -8,8 +8,11 @@
 #
 library(ggplot2)
 library(shiny)
+library(DT)
 
 # Define UI for application that draws a histogram
+
+
 
 shinyUI(fluidPage(
   
@@ -19,8 +22,8 @@ shinyUI(fluidPage(
   # Sidebar with options for the data set
   sidebarLayout(
     sidebarPanel(
-      h3("Pick Your Variable of Interest:"),
-      selectInput("pred", "", selected = "gold", choices = c("gold_per_min",
+      h3("EDA Page Options:"),
+      selectInput("pred", "Pick Variable of Interest", selected = "gold", choices = c("gold_per_min",
                                                                 "net_worth",
                                                                 "gold",
                                                                 "kills",
@@ -28,10 +31,20 @@ shinyUI(fluidPage(
                                                                 "duration",
                                                                 "lane",
                                                                 "lane_role")),
+      selectInput("plotType","Pick Plot Type", selected = "Histogram", choices = c("Histogram","Boxplot")),
       br(),
-      selectInput("plotType","", selected = "Histogram", choices = c("Histogram","Boxplot"))
-      #sliderInput("size", "Size of Points on Graph",
-                  #min = 1, max = 10, value = 5, step = 1),
+      h3("Modeling Page Options:"),
+      sliderInput("train", "Choose Training Data Size",
+                  min = .2, max = .8, value = .3, step = .1),
+      checkboxGroupInput("cbgInput","Choose Predictors", selected = "net_worth",choices = list("gold_per_min",
+                                                               "net_worth",
+                                                               "gold",
+                                                               "kills",
+                                                               "tower_damage",
+                                                               "duration",
+                                                               "lane",
+                                                               "lane_role")),
+      actionButton("modelButton","Train Models")
       #checkboxInput("conservation", h4("Color Code Conservation Status", style = "color:red;")),
       
       #conditionalPanel(condition = "input.conservation",
@@ -40,7 +53,10 @@ shinyUI(fluidPage(
     mainPanel(
       tabsetPanel(
         tabPanel("Plot",plotOutput("histPlot")),
-        tabPanel("Other Plot",plotOutput("distPlot"))
+        tabPanel("Modelling",DT::renderDataTable("confusMatr"),
+                 verbatimTextOutput("sum")
+                 #textOutput("glmStats")
+        )
       ))
  
     

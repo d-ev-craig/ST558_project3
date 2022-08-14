@@ -190,6 +190,57 @@ class(dataModel$lane)
 class(dataModel$lane_role)
 
 
+charvec <- c("gold_per_min","kills")
+
+
+    gold      <- "gold"       %in% charvec
+    gold_per_min    <- "gold_per_min"     %in% charvec
+    kills <- "kills"  %in% charvec
+    tower_damage <- "tower_damage" %in% charvec
+    duration <- "duration" %in% charvec
+    lane <- "lane" %in% charvec
+    lane_role <- "lane_role" %in% charvec
+    net_worth <- "net_worth" %in% charvec
+
+    if (!(gold)){
+      dataModel<- dataModel %>% select(-gold) 
+    }
+    if (!(gold_per_min)){
+      dataModel<- dataModel %>% select(-gold_per_min) 
+        }
+    if (!(net_worth)){
+      dataModel<- dataModel %>% select(-net_worth) 
+        }
+    if (!(kills)){
+      dataModel<- dataModel %>% select(-kills) 
+        }
+    if (!(tower_damage)){
+      dataModel<- dataModel %>% select(-tower_damage) 
+        }
+    if (!(duration)){
+      dataModel<- dataModel %>% select(-duration) 
+        }
+    if (!(lane)){
+      dataModel<- dataModel %>% select(-lane) 
+        }
+    if (!(lane_role)){
+      dataModel<- dataModel %>% select(-lane_role) 
+    }
+ str(dataModel)
+ 
+    preds <- data.frame(charvec)
+    
+    #} else if (men & women){
+    #  s <- 5
+    #} else if (men){
+    #  s <-1
+    #} else if (women){
+    #  s <-2
+    #} else if (children) {
+    #  s <- 3
+    #}  
+
+
 dataIndex <- createDataPartition(dataModel$win, p = 0.75, list = FALSE)
 dataTrain <- dataModel[dataIndex, ]
 dataTest <- dataModel[-dataIndex, ]
@@ -199,7 +250,6 @@ glmFit <- train(win ~ ., data = dataTrain,
          family = "binomial",
          preProcess = c("center", "scale"),
          trControl = trainControl(method = "cv", number = 10))
-
 
 predictions <- predict(glmFit, dataTrain)
 

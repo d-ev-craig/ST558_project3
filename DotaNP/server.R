@@ -17,17 +17,24 @@ library(gbm)
 library(ggsci)
 library(shinythemes)
 library(shiny)
+library(DT)
 
 
 # Define server logic required to draw a histogram
-shinyServer(function(input, output) {
+shinyServer(function(input, output,session) {
 
   getData<- reactive ({
     npData<-read_csv("NPBase.csv")
     npData$gold <- as.numeric(npData$gold)
     npData
+    dataModel <- data.frame(npData)
+    dataModel$win <- as.factor(dataModel$win)
+})
+
+  
+### Numerical Summaries
     
-  })
+### Plotting Area   
   
   ghettoData <- reactive ({
     var <- input$pred
@@ -126,7 +133,207 @@ if (plotType == 'Histogram'){
       }
 
     })
+
+
+##### Modeling area
+##dataModel is located in the first reactive command getData
+
+
+
+# 
+# class(dataModel$win)
+# class(dataModel$gold_per_min)
+# class(dataModel$net_worth)
+# class(dataModel$gold)
+# class(dataModel$kills)
+# class(dataModel$tower_damage)
+# class(dataModel$duration)
+# class(dataModel$lane)
+# class(dataModel$lane_role)
+
+
+getDataModel<- reactive ({
+  npData<-read_csv("NPBase.csv")
+  npData$gold <- as.numeric(npData$gold)
+  npData
+  dataModel <- data.frame(npData)
+  dataModel$win <- as.factor(dataModel$win)
+  if ("account_id" %in% colnames(dataModel)){
+    dataModel <- subset(dataModel, select = -account_id) 
+  }
+  
+  if ("match_id" %in% colnames(dataModel)){
+    dataModel <- subset(dataModel, select = -match_id)
+  }
+  
+  if ("hero_id" %in% colnames(dataModel)){
+    dataModel <- subset(dataModel, select = -hero_id)
+  }
+  
+  if ("leaguename" %in% colnames(dataModel)){
+    dataModel <- subset(dataModel, select = -leaguename)
+  }
+  
+  if ("start_time" %in% colnames(dataModel)) {
+    dataModel <- subset(dataModel, select = -start_time)
+  }
+  dataModel
+  
 })
-      
+
+getTrainSetSize <- reactive({
+  trainSetSize <- input$train
+})
+
+getModelPreds <- reactive({
+  preds <- input$cbgInput
+})
+
+
+
+summStats <- eventReactive(input$modelButton,{
+  
+
+  
+dataModel<-getDataModel()
+trainSetSize<- getTrainSetSize()
+#trainSetSize<- input$train
+charvec <- getModelPreds()
+#preds <- input$cbgInput
+
+#pre-process: center and scale?
+
+
+#Filtering out predictors not indicated by user
+gold      <- "gold"       %in% charvec
+gold_per_min    <- "gold_per_min"     %in% charvec
+kills <- "kills"  %in% charvec
+tower_damage <- "tower_damage" %in% charvec
+duration <- "duration" %in% charvec
+lane <- "lane" %in% charvec
+lane_role <- "lane_role" %in% charvec
+net_worth <- "net_worth" %in% charvec
+
+if (!(gold)){
+  dataModel<- dataModel %>% select(-gold) 
+}
+if (!(gold_per_min)){
+  dataModel<- dataModel %>% select(-gold_per_min) 
+}
+if (!(net_worth)){
+  dataModel<- dataModel %>% select(-net_worth) 
+}
+if (!(kills)){
+  dataModel<- dataModel %>% select(-kills) 
+}
+if (!(tower_damage)){
+  dataModel<- dataModel %>% select(-tower_damage) 
+}
+if (!(duration)){
+  dataModel<- dataModel %>% select(-duration) 
+}
+if (!(lane)){
+  dataModel<- dataModel %>% select(-lane) 
+}
+if (!(lane_role)){
+  dataModel<- dataModel %>% select(-lane_role) 
+}
+
+#Training Model ---------
+  #trainsetsize
+  dataIndex <- createDataPartition(dataModel$win, p = trainSetSize, list = FALSE)
+  dataTrain <- dataModel[dataIndex, ]
+  dataTest <- dataModel[-dataIndex, ]
+  
+  #Logistic Reg
+  glmFit <- train(win ~ ., data = dataTrain, 
+                  method = "glm", 
+                  family = "binomial",
+                  preProcess = c("center", "scale"),
+                  trControl = trainControl(method = "cv", number = 10))
+  
+  
+  # predictions <- predict(glmFit, dataTrain)
+  # 
+  # devia<-summary(glmFit)$deviance
+  # 
+  # coef <-summary(glmFit)$coefficients
+  # 
+  # predictions
+  # devia
+  # coef
     
+  
+  ## Class Tree Section
+  
+  # Classification Tree
+  # Change . to user input
+  
+  classTreeFit <- tree(win ~ ., data = dataTrain) # The '.' means all variables to be used as explanatory variables
+  summary(classTreeFit)
+  
+  
+  ###Pruning
+  pruneFit <- cv.tree(classTreeFit, FUN = prune.misclass)
+  
+  
+  plot(pruneFit$size, pruneFit$dev, type = "b")
+  
+  
+  pruneFit
+  
+  dfPruneFit <- cbind(size=pruneFit$size,dev=pruneFit$dev)
+  dfPruneFit <- data.frame(dfPruneFit)
+  dfPruneFit <- dfPruneFit %>% group_by(size)%>%arrange(size)%>%arrange(dev)
+  
+  
+  bestVal <- dfPruneFit$size[1]
+  bestVal
+  
+  ## Final Prune Fit
+  pruneFitFinal <- prune.misclass(classTreeFit, best = bestVal)
+  
+  fullPred <- predict(classTreeFit, dplyr::select(dataTest, -"win"), type = "class")
+  
+  prunePred <- predict(pruneFitFinal, dplyr::select(dataTest, -"win"), type = "class")
+  
+  ## Prune Preds
+  fullTbl <- table(data.frame(fullPred, dataTest[, "win"]))
+  kable(fullTbl)
+  accFull<-sum(diag(fullTbl)/sum(fullTbl))
+  print(accFull)
+  
+  pruneTbl <- table(data.frame(prunePred, dataTest[, "win"]))
+  kable(pruneTbl)
+  accPrune<-sum(diag(pruneTbl)/sum(pruneTbl))
+  print(accPrune)
+  
+  
+})
+
+output$sum <- renderPrint({
+  models <- summStats()
+  summary(models)
+})
+
+#Next steps,
+# 1. Figure out the predictions error on Modeling page
+# 2. Input all the other models
+# 3. Render the summary stats
+# 4. Ensure training set size user input
+
+
+output$confMatr<-DT::renderDataTable({
+  confusMatr<-confusionMatrix(data = dataTest$win, reference = predict(glmFit, newdata = dataTest))
+  confusMatr
+})
+
+
+output$glmStats <- renderText({
+  predictions
+  devia
+  coef
+  predictions
+})
+})
     
