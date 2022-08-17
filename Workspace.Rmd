@@ -18,6 +18,12 @@ library(ggsci)
 library(tree)
 ```
 
+8.14 Update:
+Finish the Predictions Page
+Finish showing filtered data page
+
+Make it prettier
+
 Load In Data
 ```{r}
 #data<-read_csv("_Projects\\Project3\\datasets\\NPBase.csv")
@@ -39,6 +45,15 @@ npData
 npData$account_id <- as.factor(npData$account_id)
 
 npData$match_id <- as.factor(npData$match_id)
+
+# gold      <- "gold"       %in% charvec
+#   gold_per_min    <- "gold_per_min"     %in% charvec
+#   kills <- "kills"  %in% charvec
+#   tower_damage <- "tower_damage" %in% charvec
+#   duration <- "duration" %in% charvec
+#   lane <- "lane" %in% charvec
+#   lane_role <- "lane_role" %in% charvec
+#   net_worth <- "net_worth" %in% charvec
 
 ```
 EDA
@@ -329,7 +344,15 @@ tuneGrid = data.frame(mtry = sqrt(ncol(dataTrain) - 1)))
 
 trainConMat <- confusionMatrix(trainRFModel, newdata = dataTest)
 testConMat <- confusionMatrix(data = dataTest$win, reference = predict(trainRFModel, newdata = dataTest))
+trainConMat
+testConMat
+summary(trainRFModel)
+
+predict(trainRFModel,newdata=dataTest)
+
 ```
+
+
 
 # Prediction Page Using the GLM
 

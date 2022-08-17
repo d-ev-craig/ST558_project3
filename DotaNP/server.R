@@ -18,6 +18,8 @@ library(ggsci)
 library(shinythemes)
 library(shiny)
 library(DT)
+library(knitr)
+library(tree)
 
 
 # Define server logic required to draw a histogram
@@ -29,6 +31,9 @@ shinyServer(function(input, output,session) {
     npData
     dataModel <- data.frame(npData)
     dataModel$win <- as.factor(dataModel$win)
+    dataModel$lane <- as.factor(dataModel$lane)
+    dataModel$lane_role <- as.factor(dataModel$lane_role)
+    dataModel
 })
 
   
@@ -57,7 +62,7 @@ shinyServer(function(input, output,session) {
     })
 
     output$histPlot<- renderPlot({
-      
+      npData <- getData()
       var <- ghettoData()
       plotType <- plotInput()
 
@@ -150,14 +155,20 @@ if (plotType == 'Histogram'){
 # class(dataModel$duration)
 # class(dataModel$lane)
 # class(dataModel$lane_role)
+    
+    getTrainSetSize <- reactive({
+      trainSetSize <- input$train
+    })
+    getModelPreds <- reactive({
+      preds <- input$cbgInput
+    })
+    
 
-
-getDataModel<- reactive ({
-  npData<-read_csv("NPBase.csv")
-  npData$gold <- as.numeric(npData$gold)
-  npData
-  dataModel <- data.frame(npData)
-  dataModel$win <- as.factor(dataModel$win)
+getDataModel<- eventReactive (input$modelButton,{
+  charvec<-getModelPreds()
+  
+  dataModel <- getData()
+  
   if ("account_id" %in% colnames(dataModel)){
     dataModel <- subset(dataModel, select = -account_id) 
   }
@@ -177,73 +188,92 @@ getDataModel<- reactive ({
   if ("start_time" %in% colnames(dataModel)) {
     dataModel <- subset(dataModel, select = -start_time)
   }
+  
+
+  gold      <- "gold"       %in% charvec
+  gold_per_min    <- "gold_per_min"     %in% charvec
+  kills <- "kills"  %in% charvec
+  tower_damage <- "tower_damage" %in% charvec
+  duration <- "duration" %in% charvec
+  lane <- "lane" %in% charvec
+  lane_role <- "lane_role" %in% charvec
+  net_worth <- "net_worth" %in% charvec
+  
+  if (!(gold)){
+    dataModel<- dataModel %>% select(-gold) 
+  }
+  if (!(gold_per_min)){
+    dataModel<- dataModel %>% select(-gold_per_min) 
+  }
+  if (!(net_worth)){
+    dataModel<- dataModel %>% select(-net_worth) 
+  }
+  if (!(kills)){
+    dataModel<- dataModel %>% select(-kills) 
+  }
+  if (!(tower_damage)){
+    dataModel<- dataModel %>% select(-tower_damage) 
+  }
+  if (!(duration)){
+    dataModel<- dataModel %>% select(-duration) 
+  }
+  if (!(lane)){
+    dataModel<- dataModel %>% select(-lane) 
+  }
+  if (!(lane_role)){
+    dataModel<- dataModel %>% select(-lane_role) 
+  }
   dataModel
   
 })
 
-getTrainSetSize <- reactive({
-  trainSetSize <- input$train
-})
-
-getModelPreds <- reactive({
-  preds <- input$cbgInput
-})
 
 
-
-summStats <- eventReactive(input$modelButton,{
-  
-
+dataIndex <- reactive({
   
 dataModel<-getDataModel()
-trainSetSize<- getTrainSetSize()
 #trainSetSize<- input$train
-charvec <- getModelPreds()
 #preds <- input$cbgInput
+trainSetSize <- getTrainSetSize()
 
 #pre-process: center and scale?
 
+dataIndex <- createDataPartition(dataModel$win, p = trainSetSize, list = FALSE)
+dataIndex
+})
 
-#Filtering out predictors not indicated by user
-gold      <- "gold"       %in% charvec
-gold_per_min    <- "gold_per_min"     %in% charvec
-kills <- "kills"  %in% charvec
-tower_damage <- "tower_damage" %in% charvec
-duration <- "duration" %in% charvec
-lane <- "lane" %in% charvec
-lane_role <- "lane_role" %in% charvec
-net_worth <- "net_worth" %in% charvec
+dataTrain <- reactive({
+  dataModel <- getDataModel()
+  dataIndex <- dataIndex()
+  
+  dataTrain <- dataModel[dataIndex, ]
+  dataTrain
+})
 
-if (!(gold)){
-  dataModel<- dataModel %>% select(-gold) 
-}
-if (!(gold_per_min)){
-  dataModel<- dataModel %>% select(-gold_per_min) 
-}
-if (!(net_worth)){
-  dataModel<- dataModel %>% select(-net_worth) 
-}
-if (!(kills)){
-  dataModel<- dataModel %>% select(-kills) 
-}
-if (!(tower_damage)){
-  dataModel<- dataModel %>% select(-tower_damage) 
-}
-if (!(duration)){
-  dataModel<- dataModel %>% select(-duration) 
-}
-if (!(lane)){
-  dataModel<- dataModel %>% select(-lane) 
-}
-if (!(lane_role)){
-  dataModel<- dataModel %>% select(-lane_role) 
-}
 
+
+dataTest <- reactive({
+  dataModel <- getDataModel()
+  dataIndex <- dataIndex()
+  #dataTrain <- dataTrain()
+  
+  dataTest <- dataModel[-dataIndex, ]
+  dataTest
+})
+
+
+glmModel <- eventReactive(input$modelButton,{
 #Training Model ---------
   #trainsetsize
-  dataIndex <- createDataPartition(dataModel$win, p = trainSetSize, list = FALSE)
-  dataTrain <- dataModel[dataIndex, ]
-  dataTest <- dataModel[-dataIndex, ]
+  
+  dataModel <- getDataModel()
+  trainSetSize<- getTrainSetSize()
+  dataTrain <- dataTrain()
+  
+  
+  #dataIndex <- createDataPartition(dataModel$win, p = trainSetSize, list = FALSE)
+  #dataTrain <- dataModel[dataIndex, ]
+  #dataTest <- dataModel[-dataIndex, ]
   
   #Logistic Reg
   glmFit <- train(win ~ ., data = dataTrain, 
@@ -263,77 +293,351 @@ if (!(lane_role)){
   # devia
   # coef
     
+})
+
+output$confusMatr<-renderPrint({
+  glmFit <- glmModel()
+  dataTest <- dataTest()
+  confusMatr<-confusionMatrix(data = dataTest$win, reference = predict(glmFit, newdata = dataTest))
+  confusMatr
+})
+
+output$sum <- renderPrint({
+  models <- glmModel()
+  summary(models)
+})
+
+
+
+##------------------------Tree Vars
+
+# ClassTree -> pruneTree -> pruneStats -.
+
+
+
+output$dataTrain <- renderPrint({
   
-  ## Class Tree Section
   
-  # Classification Tree
-  # Change . to user input
+  classTreeFit <- classTree()
+  summary(classTreeFit)# this works
+  #dataTrain <- dataTrain() #this passes output
+  #pruneTree <- pruneTree() #this fails for not finding dataTrain object
+  #pruneStats <- pruneStats() #this fails for also not finding dataTrain object
+})
+
+
+##Unprune Tree
+classTree <- reactive({
+  dataTrain <- dataTrain()
+  classTreeFit <- tree(win ~ ., data = dataTrain)
+
+})
+
+
+output$classTreeSumm <-renderText({
   
-  classTreeFit <- tree(win ~ ., data = dataTrain) # The '.' means all variables to be used as explanatory variables
-  summary(classTreeFit)
+  classTreeSum <- classTree()
+  print(classTreeSum)
   
+})
+
+
+# classTree <- reactive({
+#   dataTrain <- dataTrain()
+#   classTreeFit <- tree(win ~ ., data = dataTrain)
+#   
+# })
+
+
+
+# pruneTree <- reactive({
+#   
+#   classTreeFit <- classTree()
+#   
+#   pruneFit <- cv.tree(classTreeFit, FUN = prune.misclass)
+# })
+
+##Prune Tree Fit
+pruneTree <-eventReactive(input$modelButton,{
+
+  classTreeFit<-classTree()
   
-  ###Pruning
   pruneFit <- cv.tree(classTreeFit, FUN = prune.misclass)
-  
-  
-  plot(pruneFit$size, pruneFit$dev, type = "b")
-  
-  
   pruneFit
-  
-  dfPruneFit <- cbind(size=pruneFit$size,dev=pruneFit$dev)
-  dfPruneFit <- data.frame(dfPruneFit)
-  dfPruneFit <- dfPruneFit %>% group_by(size)%>%arrange(size)%>%arrange(dev)
-  
-  
-  bestVal <- dfPruneFit$size[1]
-  bestVal
-  
-  ## Final Prune Fit
-  pruneFitFinal <- prune.misclass(classTreeFit, best = bestVal)
+})
+
+
+#------------Choosing Best Pruned Model Fit
+##Prune Stats Generate
+pruneStats <-reactive({
+  pruneFit<- pruneTree()
+  #classTreeFit<-classTree()
+  #pruneFit
+#Ordering things so that the best value is always in the first slot of dfPruneFit$size
+dfPruneFit <- cbind(size=pruneFit$size,dev=pruneFit$dev)
+dfPruneFit <- data.frame(dfPruneFit)
+dfPruneFit <- dfPruneFit %>% group_by(size)%>%arrange(size)%>%arrange(dev)
+
+
+bestVal <- dfPruneFit$size[1]
+bestVal
+
+pruneFitFinal <- prune.misclass(classTreeFit, best = bestVal)
+pruneFitFinal
+#prunePred <- predict(pruneFitFinal, dplyr::select(dataTest, -"win"), type = "class")
+})
+
+#Predictions for Summary Tables on Classification Tree
+
+fullPred <- eventReactive( input$modelButton, {
+  classTreeFit<- classTree()
+  dataTest <- dataTest()
   
   fullPred <- predict(classTreeFit, dplyr::select(dataTest, -"win"), type = "class")
+})
+
+
+output$fullTree <- renderDataTable({
   
-  prunePred <- predict(pruneFitFinal, dplyr::select(dataTest, -"win"), type = "class")
+  fullPred <- fullPred()
+  dataTest <- dataTest()
   
-  ## Prune Preds
-  fullTbl <- table(data.frame(fullPred, dataTest[, "win"]))
-  kable(fullTbl)
+  ##Generate the Comparison Table
+  fullTbl <- table(data.frame(fullPred, dataTest$win))
+  fullTbl
+  #accFull<-sum(diag(fullTbl)/sum(fullTbl))
+  #accFull
+})
+
+output$accFull <- renderText({ #checked for dataTrain
+  
+  fullPred <- fullPred()
+  dataTest <- dataTest()
+  
+  #Make table and print accuracy
+  fullTbl <- table(data.frame(fullPred, dataTest$win))
+  fullTbl
   accFull<-sum(diag(fullTbl)/sum(fullTbl))
-  print(accFull)
+  accFull
+})
+
+prunePred <- eventReactive(input$modelButton, { #checked for dataTrain
+  pruneFitFinal <- pruneStats()
+  dataTest <- dataTest()
+  prunePred <- predict(pruneFitFinal, dplyr::select(dataTest, -"win"), type = "class")
+})
+
+
+output$pruneTree <- renderDataTable({ #checked for dataTrain
+
+  prunePred <- prunePred()
+  dataTest <- dataTest()
   
-  pruneTbl <- table(data.frame(prunePred, dataTest[, "win"]))
-  kable(pruneTbl)
-  accPrune<-sum(diag(pruneTbl)/sum(pruneTbl))
-  print(accPrune)
+  pruneTbl <- table(data.frame(prunePred, dataTest$win))
+  pruneTbl
+  
+})
+
+###Comparison of Pruned Fit
+
+output$accPrune <- renderText({#checked for dataTrain
+  
+  prunePred <- prunePred()
+  dataTest <- dataTest()
+  
+pruneTbl <- table(data.frame(prunePred, dataTest$win))
+kable(pruneTbl)
+accPrune<-sum(diag(pruneTbl)/sum(pruneTbl))
+accPrune
+
+})
+
+  ##Prune Stat Render
+output$pruneStats <- renderPrint({ #checked for dataTrain
+
+  fullPred <- fullPred()
+  dataTest <- dataTest()
+  
+  pruneStats <- pruneStats()
+  summary(pruneStats)
+})
+
+#----------------------Prune Graphs
+##Prune Graph Generate
+pruneGraph <- eventReactive (input$modelButton, { #checked for dataTrain
+  #classTreeFit<-classTree()
+  pruneFit <- pruneTree()
+  prunePlot <- plot(pruneFit$size, pruneFit$dev, type = "b")
+  prunePlot
+})
+##Prune Graph Render
+output$pruneGraph <- renderPlot({ #checked for dataTrain
+  pruneGraph <- pruneGraph()
+  pruneGraph
+})
+
+
+
+##------------------------------- Random Forest
+
+rfModel <- eventReactive(input$modelButton,{
+    dataModel <- getDataModel()
+    trainSetSize<- getTrainSetSize()
+    dataTrain <- dataTrain()
+  
+trainRFModel <- train(win ~ ., data = dataTrain,
+                      method = "rf",
+                      trControl = trainControl(method = "repeatedcv", number = 5, repeats = 3),
+                      tuneGrid = data.frame(mtry = sqrt(ncol(dataTrain) - 1)))
+#trainConMat <- confusionMatrix(trainRFModel, newdata = dataTest)
+#testConMat <- confusionMatrix(data = dataTest$win, reference = predict(trainRFModel, newdata = dataTest))
+trainRFModel
+})
+
+output$rfStats <- renderPrint({
+  rfModel <- rfModel()
+  summary(rfModel)
+})
+
+output$rfConfMat <- renderPrint({
+  trainRFModel<- rfModel()
+  dataTest <- dataTest()
+  
+  trainConMat <- confusionMatrix(trainRFModel, newdata = dataTest)
+  #testConMat <- confusionMatrix(data = dataTest$win, reference = predict(trainRFModel, newdata = dataTest))
+  #testConMat
+  trainConMat
+})
+
+output$rfTestConfMat <- renderPrint({
+  trainRFModel<- rfModel()
+  dataTest <- dataTest()
+  
+  testConMat <- confusionMatrix(data = dataTest$win, reference = predict(trainRFModel, newdata = dataTest))
+  testConMat
+})
+
+fullPreds <- eventReactive(input$modelButton,{
+
+  
+  fullPred <- predict(classTreeFit, dplyr::select(dataTest, -"win"), type = "class")
   
   
 })
 
-output$sum <- renderPrint({
-  models <- summStats()
-  summary(models)
+
+## Predictions
+
+#Grab User Inputs
+userNetworth<-reactive({ userNetworth <- input$userNetworth})
+userGPM <- reactive ({ userGPM <- input$userGPM})
+userGold<- reactive ({userGold<-input$userGold})
+userKills<- reactive ({userKills<-input$userKills})
+userTD<- reactive ({userTD<-input$userTD})
+userDuration <- reactive ({userDuration<-input$userDuration})
+userLane <- reactive ({userLane<-input$userLane})
+userLaneRole <- reactive ({userLaneRole<-input$userLaneRole})
+
+
+#Upon button press, execute predict function
+prediction <- eventReactive(input$predictionButton,{
+  
+  #Pass in our trained model from earlier
+  trainRFModel <- rfModel()
+  #Pass in our selected vars
+  charvec<-getModelPreds()
+  
+#Pass in user vars
+  userNetworth <- userNetworth()
+  userGPM <- userGPM()
+  userGold <- userGold()
+  userKills <- userKills()
+  userTD <- userTD()
+  userDuration <- userDuration()
+  userLane <- userLane()
+  userLaneRole <- userLaneRole()
+
+#Build a dataframe out of values
+  userPredVals <- data.frame("gold"=userGold,"gold_per_min"=userGPM,"kills"=userKills,"tower_damage"=userTD,
+             "duration"=userDuration,"lane"=userLane,"lane_role"=userLaneRole,"net_worth"=userNetworth)
+  
+  userPredVals$lane <- as.factor(userPredVals$lane)
+  userPredVals$lane_role <- as.factor(userPredVals$lane_role)
+  
+  gold      <- "gold"       %in% charvec
+  gold_per_min    <- "gold_per_min"     %in% charvec
+  kills <- "kills"  %in% charvec
+  tower_damage <- "tower_damage" %in% charvec
+  duration <- "duration" %in% charvec
+  lane <- "lane" %in% charvec
+  lane_role <- "lane_role" %in% charvec
+  net_worth <- "net_worth" %in% charvec
+  
+  if (!(gold)){
+    userPredVals<- userPredVals %>% select(-gold) 
+  }
+  if (!(gold_per_min)){
+    userPredVals<- userPredVals %>% select(-gold_per_min) 
+  }
+  if (!(net_worth)){
+    userPredVals<- userPredVals %>% select(-net_worth) 
+  }
+  if (!(kills)){
+    userPredVals<- userPredVals %>% select(-kills) 
+  }
+  if (!(tower_damage)){
+    userPredVals<- userPredVals %>% select(-tower_damage) 
+  }
+  if (!(duration)){
+    userPredVals<- userPredVals %>% select(-duration) 
+  }
+  if (!(lane)){
+    userPredVals<- userPredVals %>% select(-lane) 
+  }
+  if (!(lane_role)){
+    userPredVals<- userPredVals %>% select(-lane_role) 
+  }
+    
+
+
+  
+  #Predict
+  prediction <- predict(trainRFModel, newdata = userPredVals)
+  prediction
 })
+
+#render our prediction
+
+output$userPrediction<- renderPrint({
+  prediction<-prediction()
+  prediction
+  
+})
+
 
 #Next steps,
 # 1. Figure out the predictions error on Modeling page
 # 2. Input all the other models
 # 3. Render the summary stats
 # 4. Ensure training set size user input
+# Frequency table/Set of Box plots/Contingency Table
+# Continuous Variables Scatterplots
 
 
-output$confMatr<-DT::renderDataTable({
-  confusMatr<-confusionMatrix(data = dataTest$win, reference = predict(glmFit, newdata = dataTest))
-  confusMatr
+#Datatable Output
+
+output$userTable <- renderDataTable({
+  dataModel <- getDataModel()
+  dataModel
 })
 
-
-output$glmStats <- renderText({
+output$glmStats <- renderPrint({
   predictions
   devia
   coef
   predictions
 })
 })
+
+
     
