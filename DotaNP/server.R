@@ -22,6 +22,7 @@ library(knitr)
 library(tree)
 
 
+
 # Define server logic required to draw a histogram
 shinyServer(function(input, output,session) {
 
@@ -36,6 +37,18 @@ shinyServer(function(input, output,session) {
     dataModel
 })
 
+## About Page
+  #Sources
+  
+  url <- a("Open Dota, an API for Dota Statistics", href="https://www.opendota.com/")
+  output$url <- renderUI({
+    tagList("URL link:", url)
+  })
+  
+  url2 <- a("Dotabuff.com, for all needs on replay stats and history", href = "https://www.dotabuff.com/")
+  output$url2 <- renderUI({
+    tagList("URL link:",url2)
+  })
   
 ### Numerical Summaries
     
