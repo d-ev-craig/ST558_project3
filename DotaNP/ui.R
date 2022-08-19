@@ -54,13 +54,14 @@ shinyUI(fluidPage(
     mainPanel(
       tabsetPanel(
         tabPanel("About",
+                 div(tags$img(src = "dotaLogo.jfif",height = '200px', weidth = '200px', deleteFile = FALSE),style="text-align: center;"),
                  h2("Dota 2: Predicting Wins with Nature's Prophet"),
-                 h4("Exposition"),
+                 br(),
+                 h3("Exposition"),
                  p("Although I could make my project about my current work as an IT Manager, I do have a wealth of informatino about Shortage/Damage Claims on inventory that we ship...
                    I decided to do it about something I'm absolutely fascinated by."),
-                 br(),
-                 strong("Dota2: Defense of the Ancients"), 
-                 p("has a long rich history that can rival the best of college sports rivalries. This video game is the grandfather of a genre called Multiplayer Online Battle Arenas, or MOBA for short.
+                 br(), 
+                 p("Dota has a long and rich history that can rival the best of college sports rivalries. This video game is the grandfather of a genre called Multiplayer Online Battle Arenas, or MOBA for short.
                    It was the first and original MOBA that started as a custom game from Warcraft 3, a 2002 RTS game by Blizzard, that garned so much popularity it eclipsed the game it was founded in. 
                    Originally began as a mod, its most dedicated and lead developer at the time was approached by Valve to release a fully fledged self-recognized title in Dota 2.
                    The game currently holds the top 6 largest prizepool of all video games ranging from $18 million to $40 million USD. 16 year olds with dreams of becoming millionaires over night has been reality for the professional players of Dota 2.
@@ -77,6 +78,26 @@ shinyUI(fluidPage(
                  h3("The Goal"),
                  p("The goal of this app is to predict whether Nature's Prophet team will win given certain variables and different statistical models. The data we are using is a collection of games gathered from 
                  a group of professional and semi-professional tournaments and leagues that all contained Nature's Prophet. These games were all played on 7.31d. It is important to note because the game can change drastically from patch to patch."),
+                 br(),
+                 h3("Instructions"),
+                 strong("1. Explore the variables you're interested in by using the EDA options and the Plot panel to view key metrics."),
+                 br(),
+                 br(),
+                 strong("2. Pick the variables you'd like to create a model with in the modeling tab options."),
+                 br(),
+                 br(),
+                 strong("3. Click the Train Models button to filter the data using your variables and training a GLM/logistic regression model, classification tree, and a random forest."),
+                 br(),
+                 br(),
+                 strong("4. View the stats and measures of success from your models and play around to see if you can find the variables that will give you the strongest model."),
+                 br(),
+                 br(),
+                 strong("5. Move to the Predictions tab and enter some of your own values you'd like to predict off of. These predictions will be using the randomforest model."),
+                 br(),
+                 br(),
+                 strong("6. Click the Predict button on the left and see if you'd win the game or not."),
+                 br(),
+                 br(),
                  h3("The Variables"),
                  p("The variables used are all stats from the games themselves. The list and a short description of what each means."),
                  # class(dataModel$win)
@@ -89,20 +110,22 @@ shinyUI(fluidPage(
                  # class(dataModel$lane)
                  # class(dataModel$lane_role)
                  strong("1. gold_per_min"), p("Sometimes shortened to GPM, gold per minute represents how much gold a hero was accuring every minute. This metric can change throughout the game and is a hybrid measurement between a hero's power and player efficiency. A higher GPM means you're likely strong and efficient."),
+                 br(),
                  strong("2. net_worth"), p("Another measure of gold, net worth is the final amount of gold a hero is worth at the end of the game. Gold can be spent on items, most appopriately thought of as assets, as well as consumables which disappear after use. Net worth is the 'gold' standard to measure a hero's power in the game."),
+                 br(),
                  strong("3. gold"), p("Although it may seem redundant, gold here is just the amount of gold the player had left at the end of the game. Sometimes players are saving for a big item that they hope will change the next fight, other times they get it just in time and have no money left to buy a second life after they die."),
+                 br(),
                  strong("4. kills"), p("This variable is a count of kills. The more kills a hero has, the more gold they would have, but it also is a representation of how much impact they had on a game. Some heros thrive on killing other heros, where some want to avoid fighting and killing for quite some time."),
+                 br(),
                  strong("5. tower_damage"),p("This variable indicates how much damage a hero caused to the enemy buildings. Some heros excel at destroying buildings rather than killing.. sometimes they're good at both!"),
-                 strong("6.duration"),
-                 strong("7. lane"),
-                 strong("8. lane_role"),
-                 h3("How to use the app"),
-                 strong("1. Explore the variables you're interested in by using the EDA options and the Plot panel to view key metrics."),
-                 strong("2. Pick the variables you'd like to create a model with in the modeling tab options."),
-                 strong("3. Click the Train Models button to filter the data using your variables and training a GLM/logistic regression model, classification tree, and a random forest."),
-                 strong("4. View the stats and measures of success from your models and play around to see if you can find the variables that will give you the strongest model."),
-                 strong("5. Move to the Predictions tab and enter some of your own values you'd like to predict off of. These predictions will be using the randomforest model."),
-                 strong("6. Click the Predict button on the left and see if you'd win the game or not."),
+                 br(),
+                 strong("6.duration"),p("Duration represents how long the game went in the format of 'mmss', i.e. 2412 is a 24 minutes 12 second game. Some heros are more powerful as the game goes on, while others depend on ending the game early."),
+                 br(),
+                 strong("7. lane"),p("Lanes are symmetrical between teams, but each lane within a team is different from another. Lane 1, the 'safelane' is typically meant for gold dependent heros. Lane 2, the 'midlane' is good for heros that do well in 1v1 scenarios and scale well with both xp and gold. Lane 3, the 'offlane' is typically saved for highly survivable heros that provide utility to the team with little gold and experience."),
+                 br(),
+                 strong("8. lane_role"),p("Across lanes, a team is divided up into farm priorities to identify who should be taking last hits for gold. This is denoted by the numbers 1 - 5 with 1 being the most important and 5 being the least important. These values are a bit mis-represented as its hard to capture who was prioritized with farm outside of net worth. Its best to interpret this as an indicator of farm level within their team. i.e. A value of 1 would indicate they were the most farmed on their team."),
+                 br(),
+                 br(),
                  h4("Sources & Packages"),
                  p("readr
                    dplyr
@@ -117,9 +140,9 @@ shinyUI(fluidPage(
                    knitr
                    tree"),
                  uiOutput("url"),
-                 uiOutput("url2")),
-                   
-        
+                 uiOutput("url2"),
+                 uiOutput("url3"),
+        ),
         tabPanel("Plot",plotOutput("histPlot")),
         tabPanel("Modeling",
                  h4("GLM Summary"),

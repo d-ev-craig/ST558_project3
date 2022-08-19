@@ -38,6 +38,16 @@ shinyServer(function(input, output,session) {
 })
 
 ## About Page
+  #Logo
+  output$dotaLogo <- renderImage({
+    # When input$n is 3, filename is ./images/image3.jpeg
+    filename <- normalizePath(file.path('/images/dotaLogo.jfif'))
+    filename
+    # Return a list containing the filename and alt text
+     list(src = filename,
+          alt = paste("Image number"))
+    
+  }, deleteFile = FALSE)
   #Sources
   
   url <- a("Open Dota, an API for Dota Statistics", href="https://www.opendota.com/")
@@ -48,6 +58,11 @@ shinyServer(function(input, output,session) {
   url2 <- a("Dotabuff.com, for all needs on replay stats and history", href = "https://www.dotabuff.com/")
   output$url2 <- renderUI({
     tagList("URL link:",url2)
+  })
+  
+  url3 <- a("Dota2.com - Nature's Prophet and Image Source", href = "https://www.dota2.com/hero/nature%27sprophet")
+  output$url3 <- renderUI({
+    tagList("URL link:",url3)
   })
   
 ### Numerical Summaries
