@@ -11,6 +11,7 @@ library(shiny)
 library(DT)
 library(caret)
 library(knitr)
+library(mathjaxr)
 # Define UI for application that draws a histogram
 
 
@@ -18,6 +19,7 @@ shinyUI(fluidPage(
   
   # Application title
   titlePanel(uiOutput("title")),
+  withMathJax(),
   
   # Sidebar with options for the data set
   sidebarLayout(
@@ -145,11 +147,31 @@ shinyUI(fluidPage(
         ),
         tabPanel("Plot",plotOutput("histPlot")),
         tabPanel("Modeling",
-                 h4("GLM Summary"),
+                 h4("Logistic Regression/GLM"),
+                 p("We will be using logistic regression in our first model to track the log odds of whether Nature's Prophet will win. 
+                   Logistic Regression models is different from linear models for a success/failure response variable in that it is accurately attempting to model the probability of success.
+                   To accomplish this, responses need to be kept between 0 and 1 using the logistic function, where L = the curve's maximum value."),
+                 (helpText('Logistic Function:  $$\\frac{L}{(1 + e^{-k(x-x_0)})}$$')),
+                 p("By forcing our responses between 0 and 1, this changes the interpretation of our coefficients inside our mdoel. Rather than them representing the change in slope given a value of a predictor, it represents the change in log odds of success."),
+                 p("For example if you only chose a predictor of netwoth for your variable of interest, your link function between the coefficients and predictors to the log odds of success would be:"),
+                 helpText('$$log(P(success|networth)/1-P(success/networth)) = beta_0 + beta_1*networth$$'),
+                 p("This does mean there is some loss of interpretability of the model that is returned without more calculation. Also important to note that deviance becomes a good method to evaluate accuracy rather than the standard RMSE."),
                  verbatimTextOutput("sum"),
                  verbatimTextOutput("confusMatr"),
                  verbatimTextOutput("dataTrain"),
                  h4("Classification Tree Summary"),
+                 p("Classification trees have great strength in interpretability, but have not been optimized fully. Classification trees achieve accurate predictions by using the Gini Index.
+                 The basic idea behind a classification tree is that we chop our distribtuion of log odds into distinct regions and use the Gini index to evaluate the amount of inequality in distribution. 
+                   The Gini index is as follows, where p = the probabilty of correct classification:"),
+                 helpText('Gini Index : $$\\frac{number in region}{class*2p(1-p)}$$'),
+                 p("We evaluate the Gini index on every single value with a region and choose the value that has the lowest Gini Index as the point to split on.
+                   This continues for each region as the tree is built."),
+                 p("We also want to minimize our value of deviance."),
+                 helpText('Deviance: $$-2plog(p) -2(1-plog)(1-p)$$'),
+                 #Insert pictures of Gini stuff from Fitting Classification Trees.Rmd
+                 p("As mentioend earlier, Classification trees aren't optimized. The Gini index currently used only looks at what the best split is 'right now',
+                   rather than what are the best splits to minimize our deviance and Gini across our next 2, 3, or 4 regions. Often pruning is also needed as multiple tree nodes
+                   are created without adding any real value to the model's accuracy."),
                  textOutput("classTreeSumm"),
                  verbatimTextOutput("pruneStats"), #sortofwork
                  
@@ -161,6 +183,13 @@ shinyUI(fluidPage(
                  #dataTableOutput("pruneTree"),
                  #verbatimTextOutput("accPrune"),
                  h4("Random Forest Summary"),
+                 p("Random Forests are very useful to increase prediction accuracy past what a normal Classification Tree can accomplish.
+                   The basic idea of Random Forests is that multiple classification trees are being averaged over to increase prediction accuracy,
+                   but with this comes with a loss of interpretability. Random forests also use a random subset of predictors at each trained tree to account for particularly powerful predictors.
+                   Random trees are typically outperformed by gradient boosted tree's depending on the nature of the data.
+                   The number of predictors is determined by whether the tree is a classification tree or regression tree. Ours is a classification tree and will use that value when training our model."),
+                 helpText('Classification : $$m = sqrt(p)$$'),
+                 helpText('Regression : $$m=p/3$$'),
                  h5("Train Confusion Matrix"),
                  verbatimTextOutput("rfConfMat"),
                  h5("Test Confusion Matrix"),

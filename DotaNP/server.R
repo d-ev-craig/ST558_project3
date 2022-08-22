@@ -20,7 +20,7 @@ library(shiny)
 library(DT)
 library(knitr)
 library(tree)
-
+library(mathjaxr)
 
 
 # Define server logic required to draw a histogram
@@ -292,6 +292,17 @@ dataTest <- reactive({
 
 glmModel <- eventReactive(input$modelButton,{
 #Training Model ---------
+  
+  
+##Math Jax
+  
+
+  output$ex2 <- renderUI ({
+    withMathJax(helpText('$$log((Psuccess|networth)/1-P(success/networth)) = \beta_0 + \beta_1*networth$$'))
+  })
+  
+  
+  
   #trainsetsize
   
   dataModel <- getDataModel()
