@@ -665,6 +665,31 @@ output$userPrediction<- renderPrint({
 
 #Datatable Output
 
+
+  
+  # Reactive value for selected dataset ----
+  datasetInput <- reactive({
+    switch(input$dataset,
+           "rock" = rock,
+           "pressure" = pressure,
+           "cars" = cars)
+  })
+  
+  # Table of selected dataset ----
+  output$table <- renderTable({
+    datasetInput()
+  })
+  
+  # Downloadable csv of selected dataset ----
+  output$downloadData <- downloadHandler(
+    filename = "yourData.csv",
+    content = function(file) {
+      write.csv(dataTrain(), file, row.names = FALSE)
+    }
+  )
+
+
+
 output$userTable <- renderDataTable({
   dataModel <- getDataModel()
   dataModel

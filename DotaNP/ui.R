@@ -231,7 +231,9 @@ shinyUI(fluidPage(
         
         
         tabPanel("Data Table",
-                 dataTableOutput("userTable")
+                 dataTableOutput("userTable"),
+                 p("Feel free to download your subsetted data here.")
+                 downloadButton("downloadData", "Download")
                  )#end of tabPanel4
         
         )#end of tabsetPanel
