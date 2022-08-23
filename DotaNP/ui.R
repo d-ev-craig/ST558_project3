@@ -232,7 +232,7 @@ shinyUI(fluidPage(
         
         tabPanel("Data Table",
                  dataTableOutput("userTable"),
-                 p("Feel free to download your subsetted data here.")
+                 p("Feel free to download your subsetted data here."),
                  downloadButton("downloadData", "Download")
                  )#end of tabPanel4
         
